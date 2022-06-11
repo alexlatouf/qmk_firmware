@@ -67,20 +67,34 @@ void matrix_init_user(void) {
 
 uint32_t last_cooldown_tick; // Used to cache the time at which the keyboard's cooling off effect occurs
 uint32_t cooldown_interval = 100; // Time between cooldown ticks
+uint32_t cooldown_buffer = 1000; // Delay before cooldown initiates
+uint32_t heat_accumulator = 0; // Counts the number of keystrokes between heat up increments
+uint32_t cooldown_accumulator = 0; // Counts the number of intervals between cooldown up decrements
 
 // Runs constantly in the background, in a loop. This function has been modified to support a custom cooling down effect.
 void matrix_scan_user(void) {
     uint32_t current_time = timer_read32();
 
-    //if (led_animation_id == 0) {
-        if ((current_time - last_cooldown_tick) >= cooldown_interval) {
-            last_cooldown_tick = current_time;
+    if (led_animation_id == 0 && ((current_time - last_cooldown_tick) >= cooldown_interval)) {
+        last_cooldown_tick = current_time;
 
-            if (led_instructions[0].g > 0) {
+        if (led_instructiuons[0].g > 0) {
+            heat_accumulator = 0;
+            cooldown_accumulator++;
+
+            // threshold is used to determine the number of intervals required before 
+            // led_instructions[0].g should be decremented. 
+            // Green values 0-99 should yield a threshold of 3
+            // Green values 100-199 should yield a threshold of 2
+            // Green values 200-254 should yield a threshold of 1
+            uint32_t threshold = 3 - (led_instructions[0].g / 100);
+
+            if ((cooldown_accumulator % threshold) == 0) {
+                cooldown_accumulator = 0;
                 led_instructions[0].g = led_instructions[0].g - 1;
             }
         }
-    //}
+    }
 };
 
 #define MODS_SHIFT (get_mods() & MOD_BIT(KC_LSHIFT) || get_mods() & MOD_BIT(KC_RSHIFT))
@@ -92,15 +106,28 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     static uint8_t scroll_effect = 0;
 
     // custom heating up effect
-    //if (led_animation_id == 0) {
-        if (led_instructions[0].g < 255) {
-            led_instructions[0].g = led_instructions[0].g + 1;
+    if (led_animation_id == 0) {
+        // setting last_cooldown_tick to the current time ensures that next cooldown
+        // tick will not occur until cooldown_interval has elapsed
+        last_cooldown_tick = timer_read32() + cooldown_buffer;
 
-            // setting last_cooldown_tick to the current time ensures that next cooldown
-            // tick will not occur until cooldown_interval has elapsed
-            last_cooldown_tick = timer_read32();
+        if (led_instructions[0].g < 255) {
+            heat_accumulator++;
+            cooldown_accumulator = 0;
+
+            // threshold is used to determine the number of keystrokes required before 
+            // led_instructions[0].g should be incremented. 
+            // Green values 0-99 should yield a threshold of 1
+            // Green values 100-199 should yield a threshold of 2
+            // Green values 200-254 should yield a threshold of 3
+            uint32_t threshold = (led_instructions[0].g / 100) + 1;
+
+            if ((heat_accumulator % threshold) == 0) {
+                heat_accumulator = 0;
+                led_instructions[0].g = led_instructions[0].g + 1;
+            }
         }
-    //}
+    }
 
     switch (keycode) {
         case L_BRI:
