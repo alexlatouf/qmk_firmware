@@ -78,7 +78,7 @@ void matrix_scan_user(void) {
     if (led_animation_id == 0 && ((current_time - last_cooldown_tick) >= cooldown_interval)) {
         last_cooldown_tick = current_time;
 
-        if (led_instructiuons[0].g > 0) {
+        if (led_instructions[0].g > 0) {
             heat_accumulator = 0;
             cooldown_accumulator++;
 
